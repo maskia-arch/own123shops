@@ -4,11 +4,6 @@ from aiogram.types import TelegramObject
 from services.db_service import db
 
 class ShopMiddleware(BaseMiddleware):
-    """
-    Middleware um Shop-Kontext zu laden:
-    - Bei eigenem Bot: Lädt Shop-Besitzer Daten
-    - Prüft ob User = Besitzer
-    """
     async def __call__(
         self,
         handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
@@ -21,22 +16,33 @@ class ShopMiddleware(BaseMiddleware):
         if not bot_info or not user:
             return await handler(event, data)
 
+        # Standardwerte: Im Master-Bot ist jeder sein eigener Chef
+        data["is_owner"] = True 
+        data["shop_owner_id"] = user.id
+        data["shop_data"] = None
+
         bot_token = bot_info.token
         
-        # Prüfe ob dieser Bot einem Shop gehört
+        # 1. Prüfe, ob es sich um einen Custom-Shop-Bot handelt
+        # Wir suchen, ob der aktuelle Bot-Token jemandem gehört
         shop_res = db.table("profiles").select("*").eq("custom_bot_token", bot_token).execute()
         
         if shop_res.data:
-            # Dies ist ein Shop-Bot
+            # KONTEXT: Dies ist ein externer PRO-Shop-Bot
             shop_owner = shop_res.data[0]
-            is_owner = user.id == shop_owner["id"]
-            
-            data["is_owner"] = is_owner
+            # Hier ist man nur Owner, wenn die ID übereinstimmt
+            data["is_owner"] = (user.id == shop_owner["id"])
             data["shop_owner_id"] = shop_owner["id"]
             data["shop_data"] = shop_owner
         else:
-            # Master Bot oder unbekannt
-            data["is_owner"] = False
-            data["shop_owner_id"] = None
+            # KONTEXT: Dies ist der Master-Bot
+            # Wir laden die Profildaten des Users, damit die Handler darauf zugreifen können
+            user_res = db.table("profiles").select("*").eq("id", user.id).execute()
+            if user_res.data:
+                data["shop_data"] = user_res.data[0]
+            
+            # is_owner bleibt True, damit jeder sein eigenes Dashboard sieht
+            data["is_owner"] = True
+            data["shop_owner_id"] = user.id
 
         return await handler(event, data)
