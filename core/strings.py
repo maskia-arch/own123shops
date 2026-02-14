@@ -94,7 +94,7 @@ class Messages:
     )
     ASK_CATEGORY_NAME = "📝 Wie soll die neue Kategorie heißen?"
     CATEGORY_CREATED = "✅ Kategorie **{name}** wurde erstellt!"
-    CATEGORY_DELETED = "🗑 Kategorie gelöscht!"
+    CATEGORY_DELETED = "🗑 Kategorie löschen!"
     CATEGORY_PRO_ONLY = "⚠️ Kategorien sind nur in der PRO-Version verfügbar! 💎"
     
     # Shop Einstellungen & Wallets

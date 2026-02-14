@@ -53,7 +53,6 @@ async def start_customer_bots(main_dispatcher: Dispatcher):
         token = shop.get("custom_bot_token")
         if token:
             try:
-                # WICHTIG: Webhook für Custom-Bot löschen, bevor Polling via BotManager startet
                 temp_bot = Bot(token=token)
                 await temp_bot.delete_webhook(drop_pending_updates=True)
                 await temp_bot.session.close()
@@ -90,41 +89,39 @@ async def main():
     dp = Dispatcher(storage=storage)
     _main_dispatcher = dp
 
-    # Middleware registrieren
+    # Middleware registrieren (Zwingend vor den Routern)
     dp.message.middleware(ShopMiddleware())
     dp.callback_query.middleware(ShopMiddleware())
 
-    # --- ROUTER REIHENFOLGE (BERICHTIGT) ---
-    # 1. Höchste Priorität: System-Level
+    # --- ROUTER PRIORISIERUNG ---
+    # 1. Höchste Priorität: System/Master-Admin
     dp.include_router(master_admin_router)
     
-    # 2. Mittlere Priorität: Administrative Handler für den Besitzer
+    # 2. Besitzer-Logik (Dashboard-Buttons & Einstellungen)
     dp.include_router(admin_router)
     dp.include_router(settings_router)
     dp.include_router(payment_router)
     dp.include_router(migration_router)
     
-    # 3. Master-Logic (Dashboard Buttons wie "Meinen Shop verwalten")
-    # Muss VOR dem customer_router stehen!
+    # 3. Master-Bot Befehle (Muss vor dem Customer-Router kommen)
     dp.include_router(master_router)
     
-    # 4. Spezifische Shop-Logik für externe Bots
+    # 4. Spezifische Shop-Funktionen
     dp.include_router(shop_logic_router)
     
-    # 5. Niedrigste Priorität: Allgemeine Kundenansicht / Katalog
+    # 5. Kunden-Fallbacks (Katalog etc.)
     dp.include_router(customer_router)
-    # ---------------------------------------
 
     await master_bot.delete_webhook(drop_pending_updates=True)
     await asyncio.sleep(1)
 
-    # Custom Bots via BotManager
+    # Start der PRO-Bots
     await start_customer_bots(dp)
 
-    # Hintergrund-Tasks
+    # Hintergrund-Tasks starten
     asyncio.create_task(check_subscription_expiry())
 
-    logger.info(f"✅ Master-Bot Polling aktiv!")
+    logger.info(f"✅ System bereit. Polling startet...")
     await dp.start_polling(master_bot, skip_updates=True)
 
 if __name__ == "__main__":
